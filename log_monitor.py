@@ -162,11 +162,11 @@ def process_payout_list(payout_list, previous_payout_list):
     """
     Process payout list directly (no log file). Diffs against previous list,
     saves new payouts to MongoDB, triggers signal engine.
-    Returns updated previous_payout_list.
+    Returns (updated_previous_payout_list, had_new_payouts: bool).
     Used when aviator.py processes payouts in-process without writing to log.
     """
     if not payout_list:
-        return previous_payout_list
+        return previous_payout_list, False
 
     if previous_payout_list is not None:
         new_values = []
@@ -202,11 +202,12 @@ def process_payout_list(payout_list, previous_payout_list):
                     time.sleep(0.1)
                 previous_payout_list = payout_list.copy()
                 logger.info(f"✅ All {len(new_values)} new payouts saved to database")
+            return previous_payout_list, True
+        return previous_payout_list, False
     else:
         logger.info(f"Initial payout list loaded: {len(payout_list)} payouts")
         previous_payout_list = payout_list.copy()
-
-    return previous_payout_list
+        return previous_payout_list, False
 
 
 def _process_lines(new_lines, previous_payout_list):
@@ -217,7 +218,7 @@ def _process_lines(new_lines, previous_payout_list):
         payout_list = parse_payout_from_log(line)
         if not payout_list:
             continue
-        previous_payout_list = process_payout_list(payout_list, previous_payout_list)
+        previous_payout_list, _ = process_payout_list(payout_list, previous_payout_list)
     return previous_payout_list
 
 

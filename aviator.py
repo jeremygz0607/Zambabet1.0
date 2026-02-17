@@ -92,12 +92,13 @@ def run_payout_script():
 
                     if payouts:
                         payout_amount_list = [p.text.strip() for p in payouts]
-                        logger.info(
-                            f"Found {len(payouts)} payouts | {payout_amount_list}"
-                        )
-                        previous_payout_list = log_monitor.process_payout_list(
+                        previous_payout_list, had_new = log_monitor.process_payout_list(
                             payout_amount_list, previous_payout_list
                         )
+                        if had_new:
+                            logger.info(
+                                f"Found {len(payouts)} payouts | {payout_amount_list}"
+                            )
                     else:
                         logger.warning(config.LOG_NO_PAYOUTS_MSG)
 
