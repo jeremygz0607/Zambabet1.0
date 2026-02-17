@@ -73,6 +73,7 @@ def run_payout_script():
             driver.get(config.GAME_URL)
 
             previous_payout_list = None
+            iframe_logged = False
             while True:
                 try:
                     WebDriverWait(driver, 10).until(
@@ -80,7 +81,9 @@ def run_payout_script():
                             (By.CSS_SELECTOR, "iframe[title='Game Window']")
                         )
                     )
-                    logger.info("Switched to game iframe")
+                    if not iframe_logged:
+                        logger.info("Switched to game iframe")
+                        iframe_logged = True
 
                     soup = BeautifulSoup(driver.page_source, "html.parser")
                     payouts_wrapper = soup.find("div", class_="payouts-wrapper")
