@@ -80,78 +80,29 @@ def _link_button():
 def _welcome_message_text():
     """Return the pinned welcome message (CHANGE 12). Uses AFFILIATE_LINK."""
     link = config.AFFILIATE_LINK or "https://app.sinalgpt.ai/sinal-confirmado"
-    link_tag = f"<a href='{link}'>app.sinalgpt.ai</a>"
-    return f"""🎰 BEM-VINDO AO AVIATOR POWER 🎰
+    link_tag = f"<a href='{link}'>JOGUE AQUI</a>"
+    return f"""🎰 BEM-VINDO AO SINAL AVIATOR 🎰
 
-Você acabou de se juntar a milhares de jogadores lutando contra a casa juntos.
+🧠 Nosso algoritmo analisa padrões em tempo real e envia sinais de alta probabilidade para o Aviator.
 
-Compartilhamos sinais. Ganhamos juntos. Aprendemos com as perdas juntos.
+📄 COMO FUNCIONA:
 
-É assim que a gente luta. 👊
+⚠️ 'Analisando...' → Prepare-se
+🚀 'Sinal Confirmado' → Aposte agora
+🚫 'Sinal Cancelado' → Algoritmo protegeu, aguarde
+✅ 'Green' → Lucro garantido
+🔴 'Stop Loss' → Proteção ativada
 
-━━━━━━━━━━━━━━━━━━━━
+💡 REGRAS DE OURO:
 
-📱 COMO FUNCIONA:
+- Siga a gestão de banca — nunca aposte mais de 5% da sua banca por entrada
+- Respeite o Gale máximo de 2
+- Não pule sinais — a consistência gera resultados
+- Confie no processo 🛡️
 
-1️⃣ Cadastre-se 👉 {link_tag}
-2️⃣ Deposite R$30-50 para começar (veja abaixo o porquê)
-3️⃣ Abra o AVIATOR
-4️⃣ Quando um sinal chegar:
-      → Configure "Auto Cashout" para o alvo (ex: 1.80x)
-      → Aposte pequeno (R$2-5)
-      → Clique APOSTAR antes do avião decolar
+🔗 {link_tag}
 
-✅ Se acertar: Ganhamos
-⚠️ Se errar: Recuperamos com GALE
-
-━━━━━━━━━━━━━━━━━━━━
-
-🔁 O QUE É GALE?
-
-Errou o alvo? Não desista - dobre sua aposta, mesmo alvo.
-
-- GALE 1 = 2x aposta (ex: R$4)
-- GALE 2 = 4x aposta (ex: R$8)
-
-Se GALE 2 errar, reagrupamos. Aguarde o próximo sinal. Nenhum time vence todas as batalhas.
-
-━━━━━━━━━━━━━━━━━━━━
-
-💰 POR QUE R$30-50 PARA COMEÇAR?
-
-O sistema GALE precisa de espaço para funcionar.
-
-Um sinal com recuperação:
-- Aposta 1: R$2
-- GALE 1:   R$4
-- GALE 2:   R$8
-- Total:    R$14
-
-Com R$20: Uma sequência ruim e você quebra.
-Com R$50: Você sobrevive, recupera e lucra.
-
-Já vimos isso centenas de vezes - jogadores que começam com pouco quebram antes do sistema funcionar para eles.
-
-Comece com R$30-50. Confie no processo. Nos agradeça depois.
-
-━━━━━━━━━━━━━━━━━━━━
-
-🎁 SORTEIOS MENSAIS:
-
-📱 iPhone 16
-💵 R$500 PIX
-
-Depositantes participam automaticamente. Ganhadores anunciados mensalmente.
-
-━━━━━━━━━━━━━━━━━━━━
-
-👉 <a href='{link}'>ENTRE PRO TIME</a>
-
-━━━━━━━━━━━━━━━━━━━━
-
-📊 Resultados diários postados. Acompanhe nosso progresso juntos.
-
-Bora time 🚀"""
+Bons lucros! 💰"""
 
 
 def send_welcome_message():
