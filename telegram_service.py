@@ -21,11 +21,12 @@ def init():
     return True
 
 
-def send_message(text):
-    """Send message to Telegram channel via HTTP API."""
+def send_message(text, reply_to_message_id=None):
+    """Send message to Telegram channel via HTTP API.
+    Returns message_id (int) on success, None on failure/disabled."""
     if not config.TELEGRAM_ENABLED:
         logger.info(f"[TELEGRAM DISABLED] Would send:\n{text}")
-        return False
+        return None
     url = f"https://api.telegram.org/bot{config.TELEGRAM_BOT_TOKEN}/sendMessage"
     payload = {
         "chat_id": config.TELEGRAM_CHANNEL_ID,
@@ -33,16 +34,20 @@ def send_message(text):
         "parse_mode": "HTML",
         "disable_web_page_preview": False,
     }
+    if reply_to_message_id is not None:
+        payload["reply_to_message_id"] = int(reply_to_message_id)
     try:
         resp = requests.post(url, json=payload, timeout=10)
         if resp.ok:
+            data = resp.json()
+            msg_id = data.get("result", {}).get("message_id")
             logger.info("Message sent to Telegram")
-            return True
+            return msg_id
         logger.error(f"Telegram API error: {resp.status_code} - {resp.text}")
-        return False
+        return None
     except requests.RequestException as e:
         logger.error(f"Failed to send Telegram message: {e}")
-        return False
+        return None
 
 
 def format_currency(value):
@@ -110,14 +115,14 @@ def send_signal(last_round, target):
 🔄 Gale Máx: {gale_max}
 
 {_link_button()}"""
-    send_message(text)
+    return send_message(text)
 
 
 # ============================================================
 # TEMPLATE 4: Win Result
 # ============================================================
-def send_win_result(result, target, today_wins, today_losses):
-    """Send win result message (gale_depth = 0) - V2 style."""
+def send_win_result(result, target, today_wins, today_losses, reply_to_message_id=None):
+    """Send win result message (gale_depth = 0) - V2 style. Optional reply threading."""
     win_emojis = ["💸", "💰", "🤑", "🏆", "✨"]
     random_emoji = random.choice(win_emojis)
     text = f"""✅ GREEEEEN! {random_emoji}
@@ -125,42 +130,42 @@ def send_win_result(result, target, today_wins, today_losses):
 Lucro garantido!
 
 {_link_button()}"""
-    send_message(text)
+    send_message(text, reply_to_message_id=reply_to_message_id)
 
 
 # ============================================================
 # TEMPLATE 5: Gale 1 Trigger
 # ============================================================
-def send_gale1_trigger(result, target):
-    """Send gale 1 warning message (V2 style)."""
+def send_gale1_trigger(result, target, reply_to_message_id=None):
+    """Send gale 1 warning message (V2 style). Optional reply threading."""
     gale_count = 1
     text = f"""⚠️ GALE {gale_count} ⚠️
 
 Dobre a aposta! Entrada de recuperação.
 
 {_link_button()}"""
-    send_message(text)
+    send_message(text, reply_to_message_id=reply_to_message_id)
 
 
 # ============================================================
 # TEMPLATE 6: Gale 2 Trigger
 # ============================================================
-def send_gale2_trigger(result, target):
-    """Send gale 2 warning message (V2 style)."""
+def send_gale2_trigger(result, target, reply_to_message_id=None):
+    """Send gale 2 warning message (V2 style). Optional reply threading."""
     gale_count = 2
     text = f"""⚠️ GALE {gale_count} ⚠️
 
 Dobre a aposta! Entrada de recuperação.
 
 {_link_button()}"""
-    send_message(text)
+    send_message(text, reply_to_message_id=reply_to_message_id)
 
 
 # ============================================================
 # TEMPLATE 7: Gale Recovery
 # ============================================================
-def send_gale_recovery(gale_depth, result, target, today_wins, today_losses):
-    """Send gale recovery message (gale 1 or 2 hit target)."""
+def send_gale_recovery(gale_depth, result, target, today_wins, today_losses, reply_to_message_id=None):
+    """Send gale recovery message (gale 1 or 2 hit target). Optional reply threading."""
     text = f"""✅ RECUPERAMOS NO GALE {gale_depth}! - {result}x
 
 Meta era {target}x - BATEU ✅
@@ -173,14 +178,14 @@ Hoje: {today_wins} ✅ | {today_losses} 🛑
 Próximo sinal em breve 👀
 
 {_link_button()}"""
-    send_message(text)
+    send_message(text, reply_to_message_id=reply_to_message_id)
 
 
 # ============================================================
 # TEMPLATE 8: Loss (Gale 2 Failed)
 # ============================================================
-def send_loss_message_telegram(result, today_wins, today_losses):
-    """Send loss message (gale 2 failed)."""
+def send_loss_message_telegram(result, today_wins, today_losses, reply_to_message_id=None):
+    """Send loss message (gale 2 failed). Optional reply threading."""
     text = f"""🛑 STOP LOSS ATIVADO 🛑
 
 Volatilidade detectada no mercado.
@@ -190,7 +195,7 @@ Pausando para proteger sua banca. 🛡️
 Aguardando entrada segura...
 
 {_link_button()}"""
-    send_message(text)
+    send_message(text, reply_to_message_id=reply_to_message_id)
 
 
 # ============================================================
