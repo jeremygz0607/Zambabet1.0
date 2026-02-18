@@ -6,6 +6,7 @@ import logging
 from datetime import datetime, timedelta
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.interval import IntervalTrigger
 import pytz
 
 import config
@@ -89,6 +90,14 @@ def init(db):
         CronTrigger(minute="*/12", timezone=BRT),
         id="pattern_monitoring",
         name="Pattern Monitoring (every 12 min)",
+    )
+
+    # Keep-Alive: check every 60s, post if channel silent 5+ min and not in cooldown
+    _scheduler.add_job(
+        _job_keep_alive,
+        IntervalTrigger(minutes=1, timezone=BRT),
+        id="keep_alive",
+        name="Keep-Alive check (every 1 min)",
     )
 
     _scheduler.start()
@@ -197,6 +206,14 @@ def _job_pattern_monitoring():
     if data:
         count, remaining = data
         telegram_service.send_pattern_monitoring(count, remaining)
+
+
+# ============================================================
+# Job: Keep-Alive (every 1 min)
+# ============================================================
+def _job_keep_alive():
+    """If channel silent 5+ min and not in cooldown, post random keep-alive message."""
+    signal_engine.check_and_send_keep_alive()
 
 
 # ============================================================

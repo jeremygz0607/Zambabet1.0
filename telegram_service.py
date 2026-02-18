@@ -11,6 +11,14 @@ import config
 
 logger = logging.getLogger(__name__)
 
+_message_sent_callback = None
+
+
+def register_message_sent_callback(callback):
+    """Register callback to be invoked when a message is successfully sent (for keep-alive tracking)."""
+    global _message_sent_callback
+    _message_sent_callback = callback
+
 
 def init():
     """Initialize Telegram service (validates config)."""
@@ -42,6 +50,11 @@ def send_message(text, reply_to_message_id=None):
             data = resp.json()
             msg_id = data.get("result", {}).get("message_id")
             logger.info("Message sent to Telegram")
+            if _message_sent_callback:
+                try:
+                    _message_sent_callback()
+                except Exception as e:
+                    logger.debug(f"message_sent_callback error: {e}")
             return msg_id
         logger.error(f"Telegram API error: {resp.status_code} - {resp.text}")
         return None
@@ -82,6 +95,26 @@ Bora lucrar hoje! 💪
 
 {_link_button()}"""
     send_message(text)
+
+
+# ============================================================
+# Keep-Alive Messages (V2 - channel stays active during silence)
+# ============================================================
+KEEP_ALIVE_VARIANTS = [
+    # Variant A
+    "📊 Mercado instável no momento...\nAnalisando padrões para entrada segura. Fique atento! 👀",
+    # Variant B
+    "🌐 Modo de proteção ativo.\nAguardando estabilização do mercado para próxima entrada segura. 🛡️",
+    # Variant C
+    "🔍 Algoritmo em execução...\nMonitorando os próximos rounds. Sinal em breve! 📡",
+]
+
+
+def send_keep_alive_message(variant_index):
+    """Send keep-alive message. variant_index 0=A, 1=B, 2=C. Max 1 per 5-min window."""
+    if 0 <= variant_index < len(KEEP_ALIVE_VARIANTS):
+        text = KEEP_ALIVE_VARIANTS[variant_index]
+        send_message(text)
 
 
 # ============================================================

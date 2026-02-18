@@ -40,3 +40,6 @@ TELEGRAM_ENABLED = bool(TELEGRAM_BOT_TOKEN and TELEGRAM_CHANNEL_ID)
 
 # Operating hours: if True, no signals created between 23:00-08:00 BRT (daily_close to daily_opener).
 OPERATING_HOURS_ONLY = os.environ.get("OPERATING_HOURS_ONLY", "false").lower() in ("true", "1", "yes")
+
+# Keep-Alive: post message if channel silent for this many minutes (when not in cooldown)
+KEEP_ALIVE_SILENCE_MINUTES = 5

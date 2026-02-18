@@ -3,7 +3,7 @@ Signal Engine: trigger logic, resolution (gale), state machine, and persistence.
 Uses MongoDB collections: rounds (read), signals, daily_stats, engine_state (cooldown).
 """
 import logging
-from datetime import datetime, timezone, date, time
+from datetime import datetime, timezone, time, timedelta
 import pytz
 
 import config
@@ -36,6 +36,7 @@ def init(db):
     _signals_coll = db[config.SIGNALS_COLLECTION]
     _daily_stats_coll = db[config.DAILY_STATS_COLLECTION]
     _engine_state_coll = db[config.ENGINE_STATE_COLLECTION]
+    telegram_service.register_message_sent_callback(record_message_sent)
     logger.info("Signal engine initialized (signals, daily_stats, engine_state)")
 
 
@@ -118,6 +119,72 @@ def clear_session_closed():
         logger.info("Session opened (daily_opener)")
     except Exception as e:
         logger.debug(f"clear_session_closed error: {e}")
+
+
+def record_message_sent():
+    """Update last_message_at for keep-alive tracking. Called via callback when any message is sent."""
+    if _engine_state_coll is None:
+        return
+    try:
+        _engine_state_coll.update_one(
+            {"_id": "state"},
+            {"$set": {"last_message_at": datetime.now(timezone.utc)}},
+            upsert=True,
+        )
+    except Exception as e:
+        logger.debug(f"record_message_sent error: {e}")
+
+
+def check_and_send_keep_alive():
+    """
+    If channel silent for KEEP_ALIVE_SILENCE_MINUTES and NOT in cooldown, post keep-alive.
+    Rotates variants A/B/C, never same twice in a row. Max 1 per 5-min window.
+    """
+    if _engine_state_coll is None:
+        return
+    if in_cooldown():
+        return
+    if _is_in_interrupted_cooldown():
+        return
+    if active_signal_exists():
+        return  # Don't keep-alive while signal is active
+    silence_min = getattr(config, "KEEP_ALIVE_SILENCE_MINUTES", 5)
+    state = _get_engine_state()
+    last_at = state.get("last_message_at")
+    if last_at is None:
+        return  # No message sent yet, skip
+    if isinstance(last_at, datetime) and last_at.tzinfo is None:
+        last_at = last_at.replace(tzinfo=timezone.utc)
+    if datetime.now(timezone.utc) - last_at < timedelta(minutes=silence_min):
+        return
+    last_variant = state.get("last_keep_alive_variant", -1)
+    # Rotate: pick next variant (0,1,2) never same twice
+    next_variant = (last_variant + 1) % 3
+    try:
+        telegram_service.send_keep_alive_message(next_variant)
+        _engine_state_coll.update_one(
+            {"_id": "state"},
+            {"$set": {"last_message_at": datetime.now(timezone.utc), "last_keep_alive_variant": next_variant}},
+            upsert=True,
+        )
+        logger.info(f"Keep-alive sent (variant {next_variant})")
+    except Exception as e:
+        logger.debug(f"check_and_send_keep_alive error: {e}")
+
+
+def _is_in_interrupted_cooldown():
+    """True if in V2 interrupted cooldown (2 min after Signal Interrupted). Stub returns False if not implemented."""
+    state = _get_engine_state()
+    last = state.get("last_signal_interrupted_at")
+    if last is None:
+        return False
+    try:
+        if isinstance(last, datetime) and last.tzinfo is None:
+            last = last.replace(tzinfo=timezone.utc)
+        since = datetime.now(timezone.utc) - last
+        return since < timedelta(minutes=getattr(config, "INTERRUPTED_COOLDOWN_MINUTES", 2))
+    except Exception:
+        return False
 
 
 def in_cooldown():
