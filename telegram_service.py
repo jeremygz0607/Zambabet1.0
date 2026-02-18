@@ -77,6 +77,118 @@ def _link_button():
     return f"<a href='{config.AFFILIATE_LINK}'>🎰 APOSTE AGORA!</a>"
 
 
+def _welcome_message_text():
+    """Return the pinned welcome message (CHANGE 12). Uses AFFILIATE_LINK."""
+    link = config.AFFILIATE_LINK or "https://app.sinalgpt.ai/sinal-confirmado"
+    link_tag = f"<a href='{link}'>app.sinalgpt.ai</a>"
+    return f"""🎰 BEM-VINDO AO AVIATOR POWER 🎰
+
+Você acabou de se juntar a milhares de jogadores lutando contra a casa juntos.
+
+Compartilhamos sinais. Ganhamos juntos. Aprendemos com as perdas juntos.
+
+É assim que a gente luta. 👊
+
+━━━━━━━━━━━━━━━━━━━━
+
+📱 COMO FUNCIONA:
+
+1️⃣ Cadastre-se 👉 {link_tag}
+2️⃣ Deposite R$30-50 para começar (veja abaixo o porquê)
+3️⃣ Abra o AVIATOR
+4️⃣ Quando um sinal chegar:
+      → Configure "Auto Cashout" para o alvo (ex: 1.80x)
+      → Aposte pequeno (R$2-5)
+      → Clique APOSTAR antes do avião decolar
+
+✅ Se acertar: Ganhamos
+⚠️ Se errar: Recuperamos com GALE
+
+━━━━━━━━━━━━━━━━━━━━
+
+🔁 O QUE É GALE?
+
+Errou o alvo? Não desista - dobre sua aposta, mesmo alvo.
+
+- GALE 1 = 2x aposta (ex: R$4)
+- GALE 2 = 4x aposta (ex: R$8)
+
+Se GALE 2 errar, reagrupamos. Aguarde o próximo sinal. Nenhum time vence todas as batalhas.
+
+━━━━━━━━━━━━━━━━━━━━
+
+💰 POR QUE R$30-50 PARA COMEÇAR?
+
+O sistema GALE precisa de espaço para funcionar.
+
+Um sinal com recuperação:
+- Aposta 1: R$2
+- GALE 1:   R$4
+- GALE 2:   R$8
+- Total:    R$14
+
+Com R$20: Uma sequência ruim e você quebra.
+Com R$50: Você sobrevive, recupera e lucra.
+
+Já vimos isso centenas de vezes - jogadores que começam com pouco quebram antes do sistema funcionar para eles.
+
+Comece com R$30-50. Confie no processo. Nos agradeça depois.
+
+━━━━━━━━━━━━━━━━━━━━
+
+🎁 SORTEIOS MENSAIS:
+
+📱 iPhone 16
+💵 R$500 PIX
+
+Depositantes participam automaticamente. Ganhadores anunciados mensalmente.
+
+━━━━━━━━━━━━━━━━━━━━
+
+👉 <a href='{link}'>ENTRE PRO TIME</a>
+
+━━━━━━━━━━━━━━━━━━━━
+
+📊 Resultados diários postados. Acompanhe nosso progresso juntos.
+
+Bora time 🚀"""
+
+
+def send_welcome_message():
+    """Send the pinned welcome message to the channel. Returns message_id or None."""
+    text = _welcome_message_text()
+    return send_message(text)
+
+
+def pin_chat_message(message_id):
+    """Pin a message in the channel. Bot must be admin. Returns True on success."""
+    if not config.TELEGRAM_ENABLED or not message_id:
+        return False
+    url = f"https://api.telegram.org/bot{config.TELEGRAM_BOT_TOKEN}/pinChatMessage"
+    payload = {
+        "chat_id": config.TELEGRAM_CHANNEL_ID,
+        "message_id": int(message_id),
+    }
+    try:
+        resp = requests.post(url, json=payload, timeout=10)
+        if resp.ok:
+            logger.info("Message pinned in channel")
+            return True
+        logger.error(f"Telegram pinChatMessage error: {resp.status_code} - {resp.text}")
+        return False
+    except requests.RequestException as e:
+        logger.error(f"Failed to pin Telegram message: {e}")
+        return False
+
+
+def send_and_pin_welcome_message():
+    """Send the welcome message and pin it. Bot must be channel admin."""
+    msg_id = send_welcome_message()
+    if msg_id:
+        return pin_chat_message(msg_id)
+    return False
+
+
 # Emoji arrays for humanization (pick randomly)
 WIN_EMOJIS = ["💸", "💰", "🤑", "🏆", "✨"]
 ALERT_EMOJIS = ["⚠️", "🔔", "📣"]
