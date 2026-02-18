@@ -135,17 +135,11 @@ Lucro garantido!
 # TEMPLATE 5: Gale 1 Trigger
 # ============================================================
 def send_gale1_trigger(result, target):
-    """Send gale 1 trigger message."""
-    text = f"""⚠️ NÃO BATEU - Caiu em {result}x
+    """Send gale 1 warning message (V2 style)."""
+    gale_count = 1
+    text = f"""⚠️ GALE {gale_count} ⚠️
 
-🔁 GALE 1 - HORA DE RECUPERAR
-
-👉 O QUE FAZER AGORA:
-1. DOBRE sua aposta (apostou R$2? agora R$4)
-2. Mesmo Auto Cashout: {target}x
-3. Clique APOSTAR
-
-Não desista - é assim que recuperamos! 💪
+Dobre a aposta! Entrada de recuperação.
 
 {_link_button()}"""
     send_message(text)
@@ -155,17 +149,11 @@ Não desista - é assim que recuperamos! 💪
 # TEMPLATE 6: Gale 2 Trigger
 # ============================================================
 def send_gale2_trigger(result, target):
-    """Send gale 2 trigger message."""
-    text = f"""🔥 GALE 1 NÃO BATEU - Caiu em {result}x
+    """Send gale 2 warning message (V2 style)."""
+    gale_count = 2
+    text = f"""⚠️ GALE {gale_count} ⚠️
 
-🔁 GALE 2 - ÚLTIMA TENTATIVA
-
-👉 O QUE FAZER AGORA:
-1. DOBRE de novo (apostou R$4? agora R$8)
-2. Mesmo Auto Cashout: {target}x
-3. Clique APOSTAR
-
-Última chance dessa sequência - bora! 🚀
+Dobre a aposta! Entrada de recuperação.
 
 {_link_button()}"""
     send_message(text)
