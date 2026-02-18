@@ -96,17 +96,20 @@ Fique pronto 👀"""
 # TEMPLATE 3: Signal
 # ============================================================
 def send_signal(last_round, target):
-    """Send signal confirmation message."""
-    text = f"""🚀 SINAL CONFIRMADO
+    """Send signal confirmation message (V2 style)."""
+    # In V2 we focus on target/protection/gale max, not last_round text.
+    target_multiplier = target
+    protection_multiplier = target  # can be adjusted later if a distinct protection level is introduced
+    gale_max = getattr(config, "MAX_GALE", 2)
 
-👉 O QUE FAZER AGORA:
-1. Abra o Aviator
-2. Coloque Auto Cashout em {target}x
-3. Aposte R$2-5
-4. Clique APOSTAR
+    text = f"""NEW:
+🚀 SINAL CONFIRMADO 🚀
 
-⏱️ Última rodada foi: {last_round}x
-(confira na sua tela para garantir que está no jogo certo)
+🎯 Alvo: {target_multiplier}x
+🛡️ Proteção: {protection_multiplier}x
+🔁 Gale Máx: {gale_max}
+
+🎰 APOSTE AGORA!
 
 {_link_button()}"""
     send_message(text)
