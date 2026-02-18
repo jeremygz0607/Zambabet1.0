@@ -603,7 +603,16 @@ def start_cooldown(rounds_count, result_round_id):
 _current_streak = 0
 _last_streak_celebration = 0
 
-STREAK_MILESTONES = [3, 5, 7, 10]
+STREAK_MILESTONES_BASE = [3, 5, 7, 10]  # 3, 5, 7, 10, then every 5: 15, 20, 25, 30...
+
+
+def _is_streak_milestone(count):
+    """True if count is a milestone: 3, 5, 7, 10, 15, 20, 25, 30..."""
+    if count in STREAK_MILESTONES_BASE:
+        return True
+    if count >= 15 and count % 5 == 0:
+        return True
+    return False
 
 
 def _persist_consecutive_wins(count):
@@ -754,9 +763,9 @@ def send_loss_message(signal, round_data):
 
 
 def _check_streak_celebration():
-    """Check if we hit a streak milestone (3, 5, 7, 10) and send alert."""
+    """Check if we hit a streak milestone (3, 5, 7, 10, 15, 20, 25...) and send alert."""
     global _last_streak_celebration
-    if _current_streak in STREAK_MILESTONES and _current_streak > _last_streak_celebration:
+    if _is_streak_milestone(_current_streak) and _current_streak > _last_streak_celebration:
         telegram_service.send_streak_celebration(_current_streak)
         _last_streak_celebration = _current_streak
 

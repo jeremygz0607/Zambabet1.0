@@ -427,10 +427,10 @@ Semana que vem tem mais! Bora time 🚀
 
 
 # ============================================================
-# STREAK ALERTS (3, 5, 7, 10 consecutive wins)
+# STREAK ALERTS (3, 5, 7, 10, 15, 20, 25... consecutive wins)
 # ============================================================
 def send_streak_celebration(streak):
-    """Send streak alert at milestones 3, 5, 7, 10. NEVER mention loss streaks."""
+    """Send streak alert at milestones 3, 5, 7, 10, then every 5. NEVER mention loss streaks."""
     if streak == 3:
         text = f"""SEQUÊNCIA DE 3 GREENS! 🔥
 
@@ -453,12 +453,20 @@ INCRÍVEL! O algoritmo não para! 💎
 Bora continuar! Quem tá junto tá lucrando! 📈💰
 
 {_link_button()}"""
-    else:  # 10
+    elif streak == 10:
         text = f"""🔥🔥🔥 SEQUÊNCIA DE 10 GREENS! 🔥🔥🔥
 
 HISTÓRICO! O algoritmo está imparável! 🚀💎
 
 Quem está seguindo está lucrando! Não perca o próximo sinal! 💰
+
+{_link_button()}"""
+    else:  # 15, 20, 25, 30...
+        text = f"""🚨🚨🚨 SEQUÊNCIA DE {streak} GREENS! 🚨🚨🚨
+
+INCRÍVEL! O algoritmo não para! Histórico! 🚀💎
+
+Quem está seguindo está lucrando! Print e manda pros amigos! 💰
 
 {_link_button()}"""
     send_message(text)
