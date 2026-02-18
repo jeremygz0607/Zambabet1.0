@@ -43,3 +43,8 @@ OPERATING_HOURS_ONLY = os.environ.get("OPERATING_HOURS_ONLY", "false").lower() i
 
 # Keep-Alive: post message if channel silent for this many minutes (when not in cooldown)
 KEEP_ALIVE_SILENCE_MINUTES = 5
+
+# Volatility Cooldown: pause signaling when 3 consecutive rounds < threshold (crashes)
+VOLATILITY_THRESHOLD = 1.20
+VOLATILITY_COOLDOWN_MIN_MIN = 5
+VOLATILITY_COOLDOWN_MAX_MIN = 8

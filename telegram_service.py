@@ -117,6 +117,18 @@ def send_keep_alive_message(variant_index):
         send_message(text)
 
 
+def send_cooldown_mode_message():
+    """Send cooldown mode message when 3 consecutive rounds < 1.20x detected."""
+    text = """📉 MODO COOLDOWN 📉
+
+3 rounds seguidos abaixo de 1.20x detectados.
+
+Algoritmo em pausa para proteção da banca.
+
+Retornamos quando o mercado estabilizar. ⏳"""
+    send_message(text)
+
+
 # ============================================================
 # TEMPLATE 2: Pattern Monitoring (Optional)
 # ============================================================

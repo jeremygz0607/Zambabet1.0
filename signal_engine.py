@@ -3,6 +3,7 @@ Signal Engine: trigger logic, resolution (gale), state machine, and persistence.
 Uses MongoDB collections: rounds (read), signals, daily_stats, engine_state (cooldown).
 """
 import logging
+import random
 from datetime import datetime, timezone, time, timedelta
 import pytz
 
@@ -138,10 +139,15 @@ def record_message_sent():
 def check_and_send_keep_alive():
     """
     If channel silent for KEEP_ALIVE_SILENCE_MINUTES and NOT in cooldown, post keep-alive.
+    Also handles volatility cooldown midpoint keep-alive.
     Rotates variants A/B/C, never same twice in a row. Max 1 per 5-min window.
     """
     if _engine_state_coll is None:
         return
+    # Volatility cooldown midpoint: post one keep-alive midway through
+    check_volatility_cooldown_midpoint()
+    if is_in_volatility_cooldown():
+        return  # Skip normal keep-alive during volatility cooldown (we have midpoint)
     if in_cooldown():
         return
     if _is_in_interrupted_cooldown():
@@ -170,6 +176,86 @@ def check_and_send_keep_alive():
         logger.info(f"Keep-alive sent (variant {next_variant})")
     except Exception as e:
         logger.debug(f"check_and_send_keep_alive error: {e}")
+
+
+def is_in_volatility_cooldown():
+    """True if in volatility cooldown (3 consecutive rounds < 1.20x)."""
+    state = _get_engine_state()
+    until = state.get("volatility_cooldown_until")
+    if until is None:
+        return False
+    try:
+        if isinstance(until, datetime) and until.tzinfo is None:
+            until = until.replace(tzinfo=timezone.utc)
+        return datetime.now(timezone.utc) < until
+    except Exception:
+        return False
+
+
+def _check_volatility_trigger(recent_rounds):
+    """True if last 3 rounds all have multiplier < VOLATILITY_THRESHOLD (1.20x)."""
+    threshold = getattr(config, "VOLATILITY_THRESHOLD", 1.20)
+    if len(recent_rounds) < 3:
+        return False
+    last_3 = recent_rounds[:3]
+    return all(r.get("multiplier", 999) < threshold for r in last_3)
+
+
+def _enter_volatility_cooldown():
+    """Enter volatility cooldown: 5-8 min pause, post message, schedule midpoint keep-alive."""
+    if _engine_state_coll is None:
+        return
+    min_min = getattr(config, "VOLATILITY_COOLDOWN_MIN_MIN", 5)
+    max_min = getattr(config, "VOLATILITY_COOLDOWN_MAX_MIN", 8)
+    duration_min = random.randint(min_min, max_min)
+    now = datetime.now(timezone.utc)
+    until = now + timedelta(minutes=duration_min)
+    try:
+        _engine_state_coll.update_one(
+            {"_id": "state"},
+            {"$set": {
+                "volatility_cooldown_until": until,
+                "volatility_cooldown_started_at": now,
+                "volatility_cooldown_duration_min": duration_min,
+                "volatility_cooldown_midpoint_sent": False,
+            }},
+            upsert=True,
+        )
+        telegram_service.send_cooldown_mode_message()
+        logger.info(f"Volatility cooldown entered for {duration_min} minutes")
+    except Exception as e:
+        logger.debug(f"_enter_volatility_cooldown error: {e}")
+
+
+def check_volatility_cooldown_midpoint():
+    """If in volatility cooldown and past midpoint, post one keep-alive and mark sent."""
+    if _engine_state_coll is None:
+        return
+    state = _get_engine_state()
+    until = state.get("volatility_cooldown_until")
+    started = state.get("volatility_cooldown_started_at")
+    midpoint_sent = state.get("volatility_cooldown_midpoint_sent", False)
+    if until is None or started is None or midpoint_sent:
+        return
+    try:
+        if isinstance(until, datetime) and until.tzinfo is None:
+            until = until.replace(tzinfo=timezone.utc)
+        if isinstance(started, datetime) and started.tzinfo is None:
+            started = started.replace(tzinfo=timezone.utc)
+    except Exception:
+        return
+    duration_min = state.get("volatility_cooldown_duration_min", 5)
+    midpoint = started + timedelta(minutes=duration_min / 2)
+    now = datetime.now(timezone.utc)
+    if now >= midpoint:
+        # Pick a random keep-alive variant for midpoint
+        variant = random.randint(0, 2)
+        telegram_service.send_keep_alive_message(variant)
+        _engine_state_coll.update_one(
+            {"_id": "state"},
+            {"$set": {"volatility_cooldown_midpoint_sent": True}},
+        )
+        logger.info("Volatility cooldown midpoint keep-alive sent")
 
 
 def _is_in_interrupted_cooldown():
@@ -212,13 +298,15 @@ def in_cooldown():
 def get_pattern_monitoring_data():
     """
     Returns (count, remaining) if we should send Template 2 (Pattern Monitoring), else None.
-    Conditions: no active signal, not in cooldown, 3+ consecutive rounds (from newest) < THRESHOLD.
+    Conditions: no active signal, not in cooldown, not in volatility cooldown, 3+ rounds < THRESHOLD.
     count = number of consecutive rounds from newest that are all < THRESHOLD.
     remaining = max(0, SEQUENCE_LENGTH - count).
     """
     if active_signal_exists():
         return None
     if in_cooldown():
+        return None
+    if is_in_volatility_cooldown():
         return None
     recent = get_recent_rounds(10)
     if len(recent) < 3:
@@ -243,6 +331,8 @@ def check_trigger(recent_rounds):
     if active_signal_exists():
         return False
     if in_cooldown():
+        return False
+    if is_in_volatility_cooldown():
         return False
     if is_session_closed():
         return False
@@ -662,7 +752,8 @@ def on_new_round(round_data):
     Main entry: called for each new round stored.
     round_data: { _id, multiplier, timestamp, ... }
     - If there is an active signal, resolve it.
-    - Else if trigger condition met, create a new signal.
+    - Check volatility trigger (3 rounds < 1.20x) -> enter cooldown.
+    - Else if trigger condition met and not in cooldowns, create a new signal.
     """
     if _db is None:
         return
@@ -671,7 +762,12 @@ def on_new_round(round_data):
 
     if active:
         resolve_signal(active, round_data)
-    elif check_trigger(recent):
+        return
+    # Volatility cooldown: 3 consecutive rounds < 1.20x -> pause signaling 5-8 min
+    if _check_volatility_trigger(recent) and not is_in_volatility_cooldown():
+        _enter_volatility_cooldown()
+        return
+    if check_trigger(recent):
         # Trigger round: the newest round in the sequence (first of last 6)
         trigger_round_id = recent[0]["_id"] if recent else round_data.get("_id")
         create_signal(trigger_round_id, config.TARGET_CASHOUT)
