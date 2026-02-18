@@ -105,11 +105,9 @@ def send_signal(last_round, target):
 
     text = f"""🚀 SINAL CONFIRMADO 🚀
 
- 🎯 Alvo: {target_multiplier}x
- 🛡️ Proteção: {protection_multiplier}x
- 🔁 Gale Máx: {gale_max}
-
- 🎰 APOSTE AGORA!
+🎯 Alvo: {target_multiplier}x
+🛡️ Proteção: {protection_multiplier}x
+🔄 Gale Máx: {gale_max}
 
 {_link_button()}"""
     send_message(text)
