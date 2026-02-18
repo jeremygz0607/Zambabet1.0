@@ -52,7 +52,7 @@ def format_currency(value):
 
 def _link_button():
     """Return the affiliate link formatted for messages."""
-    return f"<a href='{config.AFFILIATE_LINK}'>💰 JOGAR AGORA</a>"
+    return f"<a href='{config.AFFILIATE_LINK}'>🎰 APOSTE AGORA!</a>"
 
 
 # ============================================================
