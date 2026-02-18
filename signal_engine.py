@@ -603,6 +603,22 @@ def start_cooldown(rounds_count, result_round_id):
 _current_streak = 0
 _last_streak_celebration = 0
 
+STREAK_MILESTONES = [3, 5, 7, 10]
+
+
+def _persist_consecutive_wins(count):
+    """Persist consecutive_wins to engine_state (state manager)."""
+    if _engine_state_coll is None:
+        return
+    try:
+        _engine_state_coll.update_one(
+            {"_id": "state"},
+            {"$set": {"consecutive_wins": count}},
+            upsert=True,
+        )
+    except Exception as e:
+        logger.debug(f"_persist_consecutive_wins error: {e}")
+
 
 def _get_consecutive_wins_from_db():
     """
@@ -653,6 +669,7 @@ def send_win_message(signal, round_data):
         _current_streak = _get_consecutive_wins_from_db()  # Already includes this win (mark_won was called)
     else:
         _current_streak += 1
+    _persist_consecutive_wins(_current_streak)
 
     stats = _get_today_stats()
     telegram_service.send_win_result(
@@ -678,6 +695,7 @@ def send_recovery_message(signal, round_data):
         _current_streak = _get_consecutive_wins_from_db()  # Already includes this win (mark_won was called)
     else:
         _current_streak += 1
+    _persist_consecutive_wins(_current_streak)
 
     stats = _get_today_stats()
     telegram_service.send_gale_recovery(
@@ -712,7 +730,7 @@ def send_gale_message(signal, new_depth):
 
 
 def send_loss_message(signal, round_data):
-    """Send loss message (gale 2 failed)."""
+    """Send loss message (gale 2 failed). Reset consecutive_wins on stop loss."""
     global _current_streak, _last_streak_celebration  # Reset both on loss
     logger.info(
         f"[LOSS] Signal {signal['_id']} | target={signal['target']} | "
@@ -720,7 +738,8 @@ def send_loss_message(signal, round_data):
     )
     
     _current_streak = 0
-    _last_streak_celebration = 0  # Reset so we celebrate again when we hit 5/10/15 next time
+    _last_streak_celebration = 0
+    _persist_consecutive_wins(0)
     
     stats = _get_today_stats()
     telegram_service.send_loss_message_telegram(
@@ -735,16 +754,11 @@ def send_loss_message(signal, round_data):
 
 
 def _check_streak_celebration():
-    """Check if we hit a streak milestone (5, 10, 15, 20) and send celebration."""
+    """Check if we hit a streak milestone (3, 5, 7, 10) and send alert."""
     global _last_streak_celebration
-    if _current_streak in [5, 10] and _current_streak > _last_streak_celebration:
+    if _current_streak in STREAK_MILESTONES and _current_streak > _last_streak_celebration:
         telegram_service.send_streak_celebration(_current_streak)
         _last_streak_celebration = _current_streak
-    elif _current_streak >= 15 and _current_streak > _last_streak_celebration:
-        # For 15+ send every 5 (15, 20, 25, ...)
-        if _current_streak % 5 == 0:
-            telegram_service.send_streak_celebration(_current_streak, "✅" * _current_streak)
-            _last_streak_celebration = _current_streak
 
 
 def on_new_round(round_data):

@@ -427,38 +427,38 @@ Semana que vem tem mais! Bora time 🚀
 
 
 # ============================================================
-# STREAK CELEBRATION
+# STREAK ALERTS (3, 5, 7, 10 consecutive wins)
 # ============================================================
-def send_streak_celebration(streak, streak_emojis=""):
-    """Send streak celebration (5, 10, 15, 20+ wins in a row)."""
-    if streak == 5:
-        text = f"""🔥 5 SEGUIDAS!
+def send_streak_celebration(streak):
+    """Send streak alert at milestones 3, 5, 7, 10. NEVER mention loss streaks."""
+    if streak == 3:
+        text = f"""SEQUÊNCIA DE 3 GREENS! 🔥
 
-✅✅✅✅✅
-
-Quem tá junto tá lucrando! Bora continuar 💪
+Algoritmo em alta! Não perca o próximo sinal! 📈
 
 {_link_button()}"""
-    elif streak == 10:
-        text = f"""🔥🔥 10 SEGUIDAS! 🔥🔥
+    elif streak == 5:
+        text = f"""🔥🔥🔥 SEQUÊNCIA DE 5 GREENS! 🔥🔥🔥
 
-✅✅✅✅✅✅✅✅✅✅
+O ALGORITMO ESTÁ ON FIRE! 🚀
 
-O TIME TÁ ON FIRE! 🚀
-
-Quem não tá acompanhando tá perdendo dinheiro!
+Quem está seguindo, está lucrando! 💎💰
 
 {_link_button()}"""
-    else:  # 15+
-        if not streak_emojis:
-            streak_emojis = "✅" * streak
-        text = f"""🚨🚨🚨 {streak} SEGUIDAS! 🚨🚨🚨
+    elif streak == 7:
+        text = f"""🚀🚀 SEQUÊNCIA DE 7 GREENS! 🚀🚀
 
-{streak_emojis}
+INCRÍVEL! O algoritmo não para! 💎
 
-HISTÓRICO! Dia pra contar pros netos! 🤑
+Bora continuar! Quem tá junto tá lucrando! 📈💰
 
-Print isso aqui e manda pros amigos!
+{_link_button()}"""
+    else:  # 10
+        text = f"""🔥🔥🔥 SEQUÊNCIA DE 10 GREENS! 🔥🔥🔥
+
+HISTÓRICO! O algoritmo está imparável! 🚀💎
+
+Quem está seguindo está lucrando! Não perca o próximo sinal! 💰
 
 {_link_button()}"""
     send_message(text)
