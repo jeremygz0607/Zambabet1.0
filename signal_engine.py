@@ -291,6 +291,69 @@ def _set_pre_signal_sent(value):
         logger.debug(f"_set_pre_signal_sent error: {e}")
 
 
+def _clear_pre_signal_state():
+    """Clear pre_signal_sent and last_pre_signal_message_id (after cancel, or after Template 3)."""
+    if _engine_state_coll is None:
+        return
+    try:
+        _engine_state_coll.update_one(
+            {"_id": "state"},
+            {"$set": {"pre_signal_sent": False}, "$unset": {"last_pre_signal_message_id": ""}},
+            upsert=True,
+        )
+    except Exception as e:
+        logger.debug(f"_clear_pre_signal_state error: {e}")
+
+
+def _get_interrupt_stats():
+    """Hourly stats for interrupt governance. Reset when hour (BRT) changes."""
+    state = _get_engine_state()
+    hour_key = datetime.now(BRT).strftime("%Y-%m-%d-%H")
+    stats = state.get("interrupt_stats") or {}
+    if stats.get("hour_key") != hour_key:
+        stats = {"hour_key": hour_key, "interrupts": 0, "confirmed": 0}
+    return stats, hour_key
+
+
+def _should_post_interrupted_signal():
+    """True if we may post 'Sinal cancelado' (under hourly cap and rate cap)."""
+    stats, _ = _get_interrupt_stats()
+    interrupts = stats.get("interrupts", 0)
+    confirmed = stats.get("confirmed", 0)
+    max_per_hour = getattr(config, "MAX_INTERRUPTS_PER_HOUR", 5)
+    max_rate = getattr(config, "MAX_INTERRUPT_RATE", 0.30)
+    if interrupts >= max_per_hour:
+        return False
+    total = interrupts + confirmed
+    if total == 0:
+        return True
+    if (interrupts / float(total)) >= max_rate:
+        return False
+    return True
+
+
+def _record_interrupt_event(kind):
+    """Update hourly stats and optionally last_signal_interrupted_at."""
+    if _engine_state_coll is None:
+        return
+    stats, hour_key = _get_interrupt_stats()
+    if kind == "interrupted":
+        stats["interrupts"] = stats.get("interrupts", 0) + 1
+    elif kind == "confirmed":
+        stats["confirmed"] = stats.get("confirmed", 0) + 1
+    updates = {"interrupt_stats": stats}
+    if kind == "interrupted":
+        updates["last_signal_interrupted_at"] = datetime.now(timezone.utc)
+    try:
+        _engine_state_coll.update_one(
+            {"_id": "state"},
+            {"$set": updates},
+            upsert=True,
+        )
+    except Exception as e:
+        logger.debug(f"_record_interrupt_event error: {e}")
+
+
 def _is_in_interrupted_cooldown():
     """True if in V2 interrupted cooldown (2 min after Signal Interrupted). Stub returns False if not implemented."""
     state = _get_engine_state()
@@ -469,6 +532,7 @@ def create_signal(trigger_round_id, target):
         recent = get_recent_rounds(1)
         last_round = recent[0].get("multiplier") if recent else 0
         msg_id = telegram_service.send_signal(last_round=last_round, target=target)
+        _record_interrupt_event("confirmed")  # For interrupt rate governance (interrupts vs confirmed)
         if msg_id is not None:
             _signals_coll.update_one(
                 {"_id": sig_id},
@@ -832,10 +896,19 @@ def on_new_round(round_data):
         current_mult_val = 0.0
 
     # If we already sent Template 2 and the next round breaks the pattern (> THRESHOLD),
-    # post "Sinal cancelado" and reset the pre-signal flag.
+    # optionally post "Sinal cancelado" (governed by hourly cap + rate) and reset the pre-signal flag.
+    # When we skip posting cancel (governance), remove the "Analisando" message we just sent.
     if _pre_signal_sent_for_run() and current_mult_val > config.THRESHOLD and consecutive < config.SEQUENCE_LENGTH:
-        telegram_service.send_signal_cancelled()
-        _set_pre_signal_sent(False)
+        state = _get_engine_state()
+        pre_msg_id = state.get("last_pre_signal_message_id")
+        if _should_post_interrupted_signal():
+            telegram_service.send_signal_cancelled()
+            _record_interrupt_event("interrupted")
+        else:
+            # Don't post cancel — delete the "Analisando" message so channel is consistent
+            if pre_msg_id is not None:
+                telegram_service.delete_message(pre_msg_id)
+        _clear_pre_signal_state()  # pre_signal_sent + last_pre_signal_message_id
         return
 
     # Trigger fires (3 consecutive < THRESHOLD): send Template 3 ONLY if we already sent Template 2
@@ -844,13 +917,48 @@ def on_new_round(round_data):
         if not _pre_signal_sent_for_run():
             # Skip this trigger — no pre-signal was sent; do not post SINAL CONFIRMADO
             return
-        _set_pre_signal_sent(False)
+        _clear_pre_signal_state()
         trigger_round_id = recent[0]["_id"] if recent else round_data.get("_id")
         create_signal(trigger_round_id, config.TARGET_CASHOUT)
         return
-    # One round before trigger (2 consecutive): send Template 2 once
+    # One round before trigger (2 consecutive): send Template 2 once, unless in cooldown or too soon
     if consecutive == 2 and not _pre_signal_sent_for_run():
-        telegram_service.send_pre_signal_analyzing()
+        if _is_in_interrupted_cooldown():
+            return  # No new "Analisando" for 2 min after a cancel — reduces rapid repeat
+        state = _get_engine_state()
+        last_pre = state.get("last_pre_signal_at")
+        min_interval = getattr(config, "PRE_SIGNAL_MIN_INTERVAL_SEC", 90)
+        if last_pre is not None:
+            try:
+                if isinstance(last_pre, datetime) and last_pre.tzinfo is None:
+                    last_pre = last_pre.replace(tzinfo=timezone.utc)
+                if (datetime.now(timezone.utc) - last_pre).total_seconds() < min_interval:
+                    return  # Throttle: don't flood Analisando
+            except Exception:
+                pass
+        msg_id = telegram_service.send_pre_signal_analyzing()
         _set_pre_signal_sent(True)
+        if _engine_state_coll is not None:
+            try:
+                updates = {"last_pre_signal_at": datetime.now(timezone.utc)}
+                if msg_id is not None:
+                    updates["last_pre_signal_message_id"] = msg_id
+                _engine_state_coll.update_one(
+                    {"_id": "state"},
+                    {"$set": updates},
+                    upsert=True,
+                )
+            except Exception as e:
+                logger.debug(f"last_pre_signal_at / last_pre_signal_message_id update error: {e}")
     if consecutive < 2:
         _set_pre_signal_sent(False)
+        # Clear stored Analisando message_id when pattern resets so we don't delete wrong message
+        if _engine_state_coll is not None:
+            try:
+                _engine_state_coll.update_one(
+                    {"_id": "state"},
+                    {"$unset": {"last_pre_signal_message_id": ""}},
+                    upsert=False,
+                )
+            except Exception:
+                pass

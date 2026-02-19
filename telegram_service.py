@@ -31,6 +31,24 @@ def init():
     return True
 
 
+def delete_message(message_id):
+    """Delete a message from the channel. Returns True on success, False otherwise."""
+    if not config.TELEGRAM_ENABLED or message_id is None:
+        return False
+    url = f"https://api.telegram.org/bot{config.TELEGRAM_BOT_TOKEN}/deleteMessage"
+    payload = {"chat_id": config.TELEGRAM_CHANNEL_ID, "message_id": int(message_id)}
+    try:
+        resp = requests.post(url, json=payload, timeout=10)
+        if resp.ok:
+            logger.info("Telegram message deleted")
+            return True
+        logger.warning(f"Telegram deleteMessage error: {resp.status_code} - {resp.text}")
+        return False
+    except requests.RequestException as e:
+        logger.error(f"Failed to delete Telegram message: {e}")
+        return False
+
+
 def send_message(text, reply_to_message_id=None):
     """Send message to Telegram channel via HTTP API.
     Returns message_id (int) on success, None on failure/disabled.
@@ -207,11 +225,12 @@ Retornamos quando o mercado estabilizar. ⏳"""
 # TEMPLATE 2: Pre-Signal + (legacy) Pattern Monitoring
 # ============================================================
 def send_pre_signal_analyzing():
-    """Send Pre-Signal (Template 2): 'Analisando...' before a possible signal."""
+    """Send Pre-Signal (Template 2): 'Analisando...' before a possible signal.
+    Returns message_id so caller can delete it if 'Sinal cancelado' is not posted (governance)."""
     text = """⚠️ Analisando... ⚠️
 
 Padrão identificado. Aguarde o sinal."""
-    send_message(text)
+    return send_message(text)
 
 
 def send_signal_cancelled():

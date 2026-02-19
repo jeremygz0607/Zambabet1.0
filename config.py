@@ -27,9 +27,11 @@ THRESHOLD = 2.0
 TARGET_CASHOUT = 1.50
 MAX_GALE = 2
 COOLDOWN_ROUNDS = 3
-# Pre-signal: send Template 2 first, wait this long, then Template 3 when next round is processed (on time)
-PRE_SIGNAL_WAIT_MIN_SEC = 8
-PRE_SIGNAL_WAIT_MAX_SEC = 12
+# Pre-signal / interrupt governance (reduce rapid Analisando → Sinal cancelado repeats)
+INTERRUPTED_COOLDOWN_MINUTES = 2   # After posting "Sinal cancelado", no new "Analisando" for this long
+PRE_SIGNAL_MIN_INTERVAL_SEC = 90   # Min seconds between "Analisando" messages (avoid flood)
+MAX_INTERRUPTS_PER_HOUR = 5        # Hard cap on "Sinal cancelado" posts per hour
+MAX_INTERRUPT_RATE = 0.30          # Do not post cancel if interrupts already >= 30% of (interrupts + confirmed)
 # MongoDB collection names for signal engine (same database as rounds)
 SIGNALS_COLLECTION = "signals"
 DAILY_STATS_COLLECTION = "daily_stats"
