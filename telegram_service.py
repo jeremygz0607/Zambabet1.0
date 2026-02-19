@@ -209,12 +209,9 @@ Retornamos quando o mercado estabilizar. ⏳"""
 def send_pattern_monitoring(count, remaining):
     """Send pattern monitoring message (3+ rounds of sequence detected). Random Analysis emoji."""
     emoji = random.choice(ANALYSIS_EMOJIS)
-    text = f"""{emoji} Analisando padrões...
+    text = f"""⚠️ Analisando... ⚠️
 
-Últimas {count} rodadas abaixo de 2x
-Aguardando confirmação ({remaining} restantes)
-
-Fique pronto 👀"""
+Padrão identificado. Aguarde o sinal."""
     send_message(text)
 
 
