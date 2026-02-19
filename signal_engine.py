@@ -838,8 +838,12 @@ def on_new_round(round_data):
         _set_pre_signal_sent(False)
         return
 
-    # Trigger fires (3 consecutive < THRESHOLD): send Template 3 immediately
+    # Trigger fires (3 consecutive < THRESHOLD): send Template 3 ONLY if we already sent Template 2
+    # (All SINAL CONFIRMADO must occur after a pre-signal.)
     if check_trigger(recent):
+        if not _pre_signal_sent_for_run():
+            # Skip this trigger — no pre-signal was sent; do not post SINAL CONFIRMADO
+            return
         _set_pre_signal_sent(False)
         trigger_round_id = recent[0]["_id"] if recent else round_data.get("_id")
         create_signal(trigger_round_id, config.TARGET_CASHOUT)
