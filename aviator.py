@@ -91,11 +91,10 @@ def run_payout_script():
             previous_payout_list = None
             iframe_logged = False
             # Spribe game iframe: match by src (loading attribute may vary by site)
-            IFRAME_SELECTOR = "iframe[loading='eager'][src*='spribe'], iframe[loading='eager'][src*='launch.spribegaming.com']"
             while True:
                 try:
                     iframe = WebDriverWait(driver, 10).until(
-                        EC.presence_of_element_located((By.CSS_SELECTOR, IFRAME_SELECTOR))
+                        EC.presence_of_element_located((By.CSS_SELECTOR, "iframe[loading='eager'][src*='spribe'], iframe[loading='eager'][src*='launch.spribegaming.com']"))
                     )
                     driver.switch_to.frame(iframe)
                     
