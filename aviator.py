@@ -118,14 +118,14 @@ def run_payout_script():
                         logger.info("Switched to game iframe")
                         iframe_logged = True
 
-                    try:
-                        dropdown_toggle = WebDriverWait(driver, 10).until(
-                            EC.element_to_be_clickable((By.CSS_SELECTOR, ".button-block .dropdown-toggle"))
-                        )
-                        dropdown_toggle.click()
-                        time.sleep(0.5)
-                    except Exception:
-                        logger.debug("Dropdown toggle not found or already open")
+                    # try:
+                    #     dropdown_toggle = WebDriverWait(driver, 10).until(
+                    #         EC.element_to_be_clickable((By.CSS_SELECTOR, ".button-block .dropdown-toggle"))
+                    #     )
+                    #     dropdown_toggle.click()
+                    #     time.sleep(0.5)
+                    # except Exception:
+                    #     logger.debug("Dropdown toggle not found or already open")
 
                     soup = BeautifulSoup(driver.page_source, "html.parser")
                     payouts_wrapper = soup.find("div", class_="payouts-wrapper")
