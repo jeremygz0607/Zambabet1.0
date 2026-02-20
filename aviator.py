@@ -57,8 +57,6 @@ def login(driver):
             time.sleep(1)
         except Exception:
             logger.debug("No promo modal or Close button found")
-        driver.find_element(By.CSS_SELECTOR, "button[type='button'].bg-button-primary").click()
-        logger.info("Logged in iframe successfully")
         
     except Exception as e:
         logger.error(f"Error during login: {e}")
@@ -87,6 +85,8 @@ def run_payout_script():
             login(driver)
             logger.info(f"Navigating to {config.LOGIN_URL}")
             driver.get(config.LOGIN_URL)
+            driver.find_element(By.CSS_SELECTOR, "button[type='button'].bg-button-primary").click()
+            logger.info("Logged in successfully")
 
             previous_payout_list = None
             iframe_logged = False
