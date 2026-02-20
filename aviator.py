@@ -111,10 +111,9 @@ def run_payout_script():
             IFRAME_SELECTOR = "iframe[loading='eager'][src*='spribe'], iframe[loading='eager'][src*='launch.spribegaming.com']"
             while True:
                 try:
-                    iframe = WebDriverWait(driver, 20).until(
+                    WebDriverWait(driver, 10).until(
                         EC.presence_of_element_located((By.CSS_SELECTOR, IFRAME_SELECTOR))
                     )
-                    driver.switch_to.frame(iframe)
                     if not iframe_logged:
                         logger.info("Switched to game iframe")
                         iframe_logged = True
