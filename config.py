@@ -13,12 +13,11 @@ LOG_NO_PAYOUTS_MSG = "No payouts found on the page"
 # Aviator scraper
 AVIATOR_USERNAME = os.environ.get("AVIATOR_USERNAME", "")
 AVIATOR_PASSWORD = os.environ.get("AVIATOR_PASSWORD", "")
-GAME_URL = os.environ.get("AVIATOR_GAME_URL", "https://girobrasil1.com/casino/game/1892568")
-LOGIN_URL = os.environ.get("AVIATOR_LOGIN_URL", "https://girobrasil1.com/casino?cmd=signin&path=loginMultichannel")
+LOGIN_URL = os.environ.get("AVIATOR_LOGIN_URL", "https://zamba.bet/games/spribe/aviator")
 
 # MongoDB (log monitor)
 MONGODB_URI = os.environ.get("MONGODB_URI", "")
-MONGODB_DATABASE = os.environ.get("MONGODB_DATABASE", "casino")
+MONGODB_DATABASE = os.environ.get("MONGODB_DATABASE", "zambabet")
 MONGODB_COLLECTION = os.environ.get("MONGODB_COLLECTION", "rounds")
 
 # Signal Engine

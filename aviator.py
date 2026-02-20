@@ -31,15 +31,54 @@ def login(driver):
     try:
         logger.info(f"Navigating to {config.LOGIN_URL}")
         driver.get(config.LOGIN_URL)
-        time.sleep(1)
-        username_input = driver.find_element(By.CSS_SELECTOR, "input[id='MULTICHANNEL']")
-        password_input = driver.find_element(By.CSS_SELECTOR, "input[id='PASSWORD']")
+        driver.find_element(By.CSS_SELECTOR, "button[type='button'].bg-button-primary.h-14").click()
+        # Wait for login form; use name attributes (email / password) from the form
+        username_input = WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, "input[name='email']"))
+        )
+        password_input = WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, "input[name='password']"))
+        )
         input_text(username_input, config.AVIATOR_USERNAME)
         input_text(password_input, config.AVIATOR_PASSWORD)
-        driver.find_element(By.CSS_SELECTOR, "button[id='signIn']").click()
+        driver.find_element(By.CSS_SELECTOR, "button[type='submit'].bg-button-primary").click()
         logger.info("Logged in successfully")
+        # Wait for promo modal's button row, then click Close (bg-button-secondary in that row only)
+        time.sleep(1)
+        try:
+            close_btn = WebDriverWait(driver, 15).until(
+                EC.element_to_be_clickable((
+                    By.XPATH,
+                    "//div[contains(@class,'mt-10') and contains(@class,'gap-x-6')]//button[contains(@class,'bg-button-secondary')]"
+                ))
+            )
+            close_btn.click()
+            logger.info("Closed promo modal")
+            time.sleep(1)
+        except Exception:
+            logger.debug("No promo modal or Close button found")
+        driver.find_element(By.CSS_SELECTOR, "button[type='button'].bg-button-primary").click()
+        time.sleep(3)
+        # Stats dropdown may be inside game iframe; try iframe first, then main page
+        try:
+            iframe = WebDriverWait(driver, 10).until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, "iframe[loading='eager'][src*='spribe'], iframe[loading='eager'][src*='launch.spribegaming.com']"))
+            )
+            driver.switch_to.frame(iframe)
+        except Exception:
+            pass  # no iframe, stay on default content
+        try:
+            dropdown_toggle = WebDriverWait(driver, 10).until(
+                EC.element_to_be_clickable((By.CSS_SELECTOR, ".button-block .dropdown-toggle"))
+            )
+            dropdown_toggle.click()
+            logger.info("Opened stats dropdown")
+        except Exception:
+            logger.debug("Stats dropdown toggle not found")
+        finally:
+            driver.switch_to.default_content()
     except Exception as e:
-        logger.error(f"Error logging in: {e}")
+        logger.error(f"Error during login: {e}")
         raise
 
 
@@ -52,13 +91,7 @@ def run_payout_script():
     iteration. This prevents multiple dead sessions from piling up
     and keeps memory usage stable.
     """
-    try:
-        with open(config.PID_FILE, "w", encoding="utf-8") as f:
-            f.write(str(os.getpid()))
-        logger.info(f"Wrote PID to {config.PID_FILE}")
-    except Exception as e:
-        logger.warning(f"Could not write PID file: {e}")
-
+    
     while True:
         driver = None
         try:
@@ -69,21 +102,27 @@ def run_payout_script():
             )
 
             login(driver)
-            logger.info(f"Navigating to {config.GAME_URL}")
-            driver.get(config.GAME_URL)
+            logger.info(f"Navigating to {config.LOGIN_URL}")
+            driver.get(config.LOGIN_URL)
 
             previous_payout_list = None
             iframe_logged = False
             while True:
                 try:
-                    WebDriverWait(driver, 10).until(
-                        EC.frame_to_be_available_and_switch_to_it(
-                            (By.CSS_SELECTOR, "iframe[title='Game Window']")
-                        )
+                    iframe = WebDriverWait(driver, 10).until(
+                        EC.presence_of_element_located((By.CSS_SELECTOR, "iframe[loading='eager'][src*='spribe'], iframe[loading='eager'][src*='launch.spribegaming.com']"))
                     )
+                    driver.switch_to.frame(iframe)
+                    
                     if not iframe_logged:
                         logger.info("Switched to game iframe")
                         iframe_logged = True
+                        
+                    dropdown_toggle = WebDriverWait(driver, 10).until(
+                        EC.element_to_be_clickable((By.CSS_SELECTOR, ".button-block .dropdown-toggle"))
+                    )
+                    dropdown_toggle.click()
+                    time.sleep(0.5)
 
                     soup = BeautifulSoup(driver.page_source, "html.parser")
                     payouts_wrapper = soup.find("div", class_="payouts-wrapper")
