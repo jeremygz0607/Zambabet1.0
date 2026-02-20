@@ -58,6 +58,7 @@ def login(driver):
         except Exception:
             logger.debug("No promo modal or Close button found")
         driver.find_element(By.CSS_SELECTOR, "button[type='button'].bg-button-primary").click()
+        logger.info("Logged in iframe successfully")
         
     except Exception as e:
         logger.error(f"Error during login: {e}")
@@ -93,13 +94,11 @@ def run_payout_script():
             IFRAME_SELECTOR = "iframe[loading='eager'][src*='spribe'], iframe[loading='eager'][src*='launch.spribegaming.com']"
             while True:
                 try:
-                    WebDriverWait(driver, 10).until(
+                    iframe = WebDriverWait(driver, 10).until(
                         EC.presence_of_element_located((By.CSS_SELECTOR, IFRAME_SELECTOR))
                     )
-                    if not iframe_logged:
-                        logger.info("Switched to game iframe")
-                        iframe_logged = True
-
+                    driver.switch_to.frame(iframe)
+                    
                     try:
                         dropdown_toggle = WebDriverWait(driver, 10).until(
                             EC.element_to_be_clickable((By.CSS_SELECTOR, ".button-block .dropdown-toggle"))
@@ -108,6 +107,10 @@ def run_payout_script():
                         time.sleep(0.5)
                     except Exception:
                         logger.debug("Dropdown toggle not found or already open")
+                        
+                    if not iframe_logged:
+                        logger.info("Switched to game iframe")
+                        iframe_logged = True
 
                     soup = BeautifulSoup(driver.page_source, "html.parser")
                     payouts_wrapper = soup.find("div", class_="payouts-wrapper")
