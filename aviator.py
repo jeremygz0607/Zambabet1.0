@@ -2,7 +2,7 @@ from seleniumbase import Driver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import WebDriverException, InvalidSessionIdException
+from selenium.common.exceptions import WebDriverException, InvalidSessionIdException, TimeoutException
 from bs4 import BeautifulSoup
 import time
 import logging
@@ -107,22 +107,26 @@ def run_payout_script():
 
             previous_payout_list = None
             iframe_logged = False
+            # Spribe game iframe: match by src (loading attribute may vary by site)
+            IFRAME_SELECTOR = "iframe[loading='eager'][src*='spribe'], iframe[loading='eager'][src*='launch.spribegaming.com']"
             while True:
                 try:
-                    iframe = WebDriverWait(driver, 10).until(
-                        EC.presence_of_element_located((By.CSS_SELECTOR, "iframe[loading='eager'][src*='spribe'], iframe[loading='eager'][src*='launch.spribegaming.com']"))
+                    iframe = WebDriverWait(driver, 20).until(
+                        EC.presence_of_element_located((By.CSS_SELECTOR, IFRAME_SELECTOR))
                     )
                     driver.switch_to.frame(iframe)
-                    
                     if not iframe_logged:
                         logger.info("Switched to game iframe")
                         iframe_logged = True
-                        
-                    dropdown_toggle = WebDriverWait(driver, 10).until(
-                        EC.element_to_be_clickable((By.CSS_SELECTOR, ".button-block .dropdown-toggle"))
-                    )
-                    dropdown_toggle.click()
-                    time.sleep(0.5)
+
+                    try:
+                        dropdown_toggle = WebDriverWait(driver, 10).until(
+                            EC.element_to_be_clickable((By.CSS_SELECTOR, ".button-block .dropdown-toggle"))
+                        )
+                        dropdown_toggle.click()
+                        time.sleep(0.5)
+                    except Exception:
+                        logger.debug("Dropdown toggle not found or already open")
 
                     soup = BeautifulSoup(driver.page_source, "html.parser")
                     payouts_wrapper = soup.find("div", class_="payouts-wrapper")
@@ -147,6 +151,10 @@ def run_payout_script():
                     driver.switch_to.default_content()
                     time.sleep(0.5)
 
+                except TimeoutException:
+                    logger.warning("Game iframe not found yet, retrying in 5s...")
+                    driver.switch_to.default_content()
+                    time.sleep(5)
                 except (InvalidSessionIdException, WebDriverException) as we:
                     logger.error(
                         f"WebDriver session error (will restart browser): {we}",
