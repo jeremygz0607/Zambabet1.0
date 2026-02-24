@@ -49,10 +49,16 @@ def delete_message(message_id):
         return False
 
 
-def send_message(text, reply_to_message_id=None):
+def send_message(text, reply_to_message_id=None, reply_markup=None):
     """Send message to Telegram channel via HTTP API.
     Returns message_id (int) on success, None on failure/disabled.
-    V2: Random 0.5-1.5s delay before send (humanization)."""
+    V2: Random 0.5-1.5s delay before send (humanization).
+    
+    Args:
+        text: Message text (HTML supported)
+        reply_to_message_id: Optional message ID to reply to
+        reply_markup: Optional inline keyboard markup (dict with 'inline_keyboard' key)
+    """
     if not config.TELEGRAM_ENABLED:
         logger.info(f"[TELEGRAM DISABLED] Would send:\n{text}")
         return None
@@ -66,6 +72,8 @@ def send_message(text, reply_to_message_id=None):
     }
     if reply_to_message_id is not None:
         payload["reply_to_message_id"] = int(reply_to_message_id)
+    if reply_markup is not None:
+        payload["reply_markup"] = reply_markup
     try:
         resp = requests.post(url, json=payload, timeout=10)
         if resp.ok:
@@ -124,9 +132,21 @@ Bons lucros! 💰"""
 
 
 def send_welcome_message():
-    """Send the pinned welcome message to the channel. Returns message_id or None."""
+    """Send the pinned welcome message to the channel with inline button. Returns message_id or None."""
     text = _welcome_message_text()
-    return send_message(text)
+    # Create inline keyboard button "COMEÇAR AGORA" linking to affiliate
+    link = config.AFFILIATE_LINK or "https://app.sinalgpt.ai/sinal-confirmado"
+    reply_markup = {
+        "inline_keyboard": [
+            [
+                {
+                    "text": "🚀 COMEÇAR AGORA",
+                    "url": link
+                }
+            ]
+        ]
+    }
+    return send_message(text, reply_markup=reply_markup)
 
 
 def pin_chat_message(message_id):
