@@ -27,45 +27,19 @@ def init():
     if not config.TELEGRAM_ENABLED:
         logger.warning("Telegram not configured (missing BOT_TOKEN or CHANNEL_ID). Messages will be logged only.")
         return False
-    logger.info(f"Telegram initialized for channel: {config.TELEGRAM_CHANNEL_ID}")
+    channels = [config.TELEGRAM_CHANNEL_ID]
+    if config.TELEGRAM_ENABLED_2:
+        channels.append(config.TELEGRAM_CHANNEL_ID_2)
+    logger.info(f"Telegram initialized for channel(s): {', '.join(channels)}")
     return True
 
 
-def delete_message(message_id):
-    """Delete a message from the channel. Returns True on success, False otherwise."""
-    if not config.TELEGRAM_ENABLED or message_id is None:
-        return False
-    url = f"https://api.telegram.org/bot{config.TELEGRAM_BOT_TOKEN}/deleteMessage"
-    payload = {"chat_id": config.TELEGRAM_CHANNEL_ID, "message_id": int(message_id)}
-    try:
-        resp = requests.post(url, json=payload, timeout=10)
-        if resp.ok:
-            logger.info("Telegram message deleted")
-            return True
-        logger.warning(f"Telegram deleteMessage error: {resp.status_code} - {resp.text}")
-        return False
-    except requests.RequestException as e:
-        logger.error(f"Failed to delete Telegram message: {e}")
-        return False
-
-
-def send_message(text, reply_to_message_id=None, reply_markup=None):
-    """Send message to Telegram channel via HTTP API.
-    Returns message_id (int) on success, None on failure/disabled.
-    V2: Random 0.5-1.5s delay before send (humanization).
-    
-    Args:
-        text: Message text (HTML supported)
-        reply_to_message_id: Optional message ID to reply to
-        reply_markup: Optional inline keyboard markup (dict with 'inline_keyboard' key)
-    """
-    if not config.TELEGRAM_ENABLED:
-        logger.info(f"[TELEGRAM DISABLED] Would send:\n{text}")
-        return None
-    time.sleep(random.uniform(0.5, 1.5))
-    url = f"https://api.telegram.org/bot{config.TELEGRAM_BOT_TOKEN}/sendMessage"
+def _send_to_single_channel(bot_token, channel_id, text, reply_to_message_id=None, reply_markup=None):
+    """Helper function to send message to a single Telegram channel.
+    Returns message_id on success, None on failure."""
+    url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
     payload = {
-        "chat_id": config.TELEGRAM_CHANNEL_ID,
+        "chat_id": channel_id,
         "text": text,
         "parse_mode": "HTML",
         "disable_web_page_preview": False,
@@ -78,19 +52,98 @@ def send_message(text, reply_to_message_id=None, reply_markup=None):
         resp = requests.post(url, json=payload, timeout=10)
         if resp.ok:
             data = resp.json()
-            msg_id = data.get("result", {}).get("message_id")
-            logger.info("Message sent to Telegram")
-            if _message_sent_callback:
-                try:
-                    _message_sent_callback()
-                except Exception as e:
-                    logger.debug(f"message_sent_callback error: {e}")
-            return msg_id
-        logger.error(f"Telegram API error: {resp.status_code} - {resp.text}")
+            return data.get("result", {}).get("message_id")
+        logger.error(f"Telegram API error (channel {channel_id}): {resp.status_code} - {resp.text}")
         return None
     except requests.RequestException as e:
-        logger.error(f"Failed to send Telegram message: {e}")
+        logger.error(f"Failed to send Telegram message to {channel_id}: {e}")
         return None
+
+
+def delete_message(message_id, message_id_2=None):
+    """Delete a message from the channel(s). 
+    If message_id_2 is provided, deletes from both channels.
+    Returns True if at least one deletion succeeded, False otherwise."""
+    success = False
+    if config.TELEGRAM_ENABLED and message_id is not None:
+        url = f"https://api.telegram.org/bot{config.TELEGRAM_BOT_TOKEN}/deleteMessage"
+        payload = {"chat_id": config.TELEGRAM_CHANNEL_ID, "message_id": int(message_id)}
+        try:
+            resp = requests.post(url, json=payload, timeout=10)
+            if resp.ok:
+                logger.info("Telegram message deleted from primary channel")
+                success = True
+            else:
+                logger.warning(f"Telegram deleteMessage error (primary): {resp.status_code} - {resp.text}")
+        except requests.RequestException as e:
+            logger.error(f"Failed to delete Telegram message from primary channel: {e}")
+    
+    if config.TELEGRAM_ENABLED_2 and message_id_2 is not None:
+        url = f"https://api.telegram.org/bot{config.TELEGRAM_BOT_TOKEN_2}/deleteMessage"
+        payload = {"chat_id": config.TELEGRAM_CHANNEL_ID_2, "message_id": int(message_id_2)}
+        try:
+            resp = requests.post(url, json=payload, timeout=10)
+            if resp.ok:
+                logger.info("Telegram message deleted from secondary channel")
+                success = True
+            else:
+                logger.warning(f"Telegram deleteMessage error (secondary): {resp.status_code} - {resp.text}")
+        except requests.RequestException as e:
+            logger.error(f"Failed to delete Telegram message from secondary channel: {e}")
+    
+    return success
+
+
+def send_message(text, reply_to_message_id=None, reply_markup=None):
+    """Send message to Telegram channel(s) via HTTP API.
+    Sends to both primary and secondary channels (if configured) simultaneously.
+    Returns primary channel message_id (int) on success, None on failure/disabled.
+    V2: Random 0.5-1.5s delay before send (humanization).
+    
+    Args:
+        text: Message text (HTML supported)
+        reply_to_message_id: Optional message ID to reply to (primary channel only)
+        reply_markup: Optional inline keyboard markup (dict with 'inline_keyboard' key)
+    
+    Returns:
+        Primary channel message_id (for backward compatibility)
+    """
+    if not config.TELEGRAM_ENABLED:
+        logger.info(f"[TELEGRAM DISABLED] Would send:\n{text}")
+        return None
+    
+    time.sleep(random.uniform(0.5, 1.5))
+    
+    # Send to primary channel
+    primary_msg_id = None
+    if config.TELEGRAM_ENABLED:
+        primary_msg_id = _send_to_single_channel(
+            config.TELEGRAM_BOT_TOKEN,
+            config.TELEGRAM_CHANNEL_ID,
+            text,
+            reply_to_message_id,
+            reply_markup
+        )
+    
+    # Send to secondary channel (if configured) - no reply threading for secondary
+    if config.TELEGRAM_ENABLED_2:
+        _send_to_single_channel(
+            config.TELEGRAM_BOT_TOKEN_2,
+            config.TELEGRAM_CHANNEL_ID_2,
+            text,
+            None,  # No reply threading for secondary channel
+            reply_markup  # But include buttons if provided
+        )
+    
+    if primary_msg_id:
+        logger.info("Message sent to Telegram channel(s)")
+        if _message_sent_callback:
+            try:
+                _message_sent_callback()
+            except Exception as e:
+                logger.debug(f"message_sent_callback error: {e}")
+    
+    return primary_msg_id
 
 
 def format_currency(value):
@@ -149,25 +202,44 @@ def send_welcome_message():
     return send_message(text, reply_markup=reply_markup)
 
 
-def pin_chat_message(message_id):
-    """Pin a message in the channel. Bot must be admin. Returns True on success."""
-    if not config.TELEGRAM_ENABLED or not message_id:
-        return False
-    url = f"https://api.telegram.org/bot{config.TELEGRAM_BOT_TOKEN}/pinChatMessage"
-    payload = {
-        "chat_id": config.TELEGRAM_CHANNEL_ID,
-        "message_id": int(message_id),
-    }
-    try:
-        resp = requests.post(url, json=payload, timeout=10)
-        if resp.ok:
-            logger.info("Message pinned in channel")
-            return True
-        logger.error(f"Telegram pinChatMessage error: {resp.status_code} - {resp.text}")
-        return False
-    except requests.RequestException as e:
-        logger.error(f"Failed to pin Telegram message: {e}")
-        return False
+def pin_chat_message(message_id, message_id_2=None):
+    """Pin a message in the channel(s). Bot must be admin. 
+    If message_id_2 is provided, pins in both channels.
+    Returns True if at least one pin succeeded."""
+    success = False
+    if config.TELEGRAM_ENABLED and message_id:
+        url = f"https://api.telegram.org/bot{config.TELEGRAM_BOT_TOKEN}/pinChatMessage"
+        payload = {
+            "chat_id": config.TELEGRAM_CHANNEL_ID,
+            "message_id": int(message_id),
+        }
+        try:
+            resp = requests.post(url, json=payload, timeout=10)
+            if resp.ok:
+                logger.info("Message pinned in primary channel")
+                success = True
+            else:
+                logger.error(f"Telegram pinChatMessage error (primary): {resp.status_code} - {resp.text}")
+        except requests.RequestException as e:
+            logger.error(f"Failed to pin Telegram message in primary channel: {e}")
+    
+    if config.TELEGRAM_ENABLED_2 and message_id_2:
+        url = f"https://api.telegram.org/bot{config.TELEGRAM_BOT_TOKEN_2}/pinChatMessage"
+        payload = {
+            "chat_id": config.TELEGRAM_CHANNEL_ID_2,
+            "message_id": int(message_id_2),
+        }
+        try:
+            resp = requests.post(url, json=payload, timeout=10)
+            if resp.ok:
+                logger.info("Message pinned in secondary channel")
+                success = True
+            else:
+                logger.error(f"Telegram pinChatMessage error (secondary): {resp.status_code} - {resp.text}")
+        except requests.RequestException as e:
+            logger.error(f"Failed to pin Telegram message in secondary channel: {e}")
+    
+    return success
 
 
 def send_and_pin_welcome_message():

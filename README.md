@@ -23,8 +23,10 @@ Copy `.env.example` to `.env` (or set variables in your shell). **Do not commit 
 | `MONGODB_URI` | aviator.py | Yes (for DB) | MongoDB connection string |
 | `MONGODB_DATABASE` | aviator.py | No | Database name (default: `casino`) |
 | `MONGODB_COLLECTION` | aviator.py | No | Collection name (default: `rounds`) |
-| `TELEGRAM_BOT_TOKEN` | telegram_service.py | Yes (for Telegram) | Bot token from @BotFather |
+| `TELEGRAM_BOT_TOKEN` | telegram_service.py | Yes (for Telegram) | Bot token from @BotFather (primary channel) |
 | `TELEGRAM_CHANNEL_ID` | telegram_service.py | Yes (for Telegram) | Channel ID (e.g., `@aviator_maquina` or numeric) |
+| `TELEGRAM_BOT_TOKEN_2` | telegram_service.py | No | Bot token for secondary channel (optional, for dual-channel broadcasting) |
+| `TELEGRAM_CHANNEL_ID_2` | telegram_service.py | No | Secondary channel ID (optional, for dual-channel broadcasting) |
 | `AFFILIATE_LINK` | telegram_service.py | No | Affiliate link for "JOGAR AGORA" buttons |
 
 ## Usage

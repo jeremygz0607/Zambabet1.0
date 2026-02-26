@@ -36,11 +36,16 @@ SIGNALS_COLLECTION = "signals"
 DAILY_STATS_COLLECTION = "daily_stats"
 ENGINE_STATE_COLLECTION = "engine_state"
 
-# Telegram
+# Telegram - Primary Channel
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHANNEL_ID = os.environ.get("TELEGRAM_CHANNEL_ID", "")
 AFFILIATE_LINK = os.environ.get("AFFILIATE_LINK", "")
 TELEGRAM_ENABLED = bool(TELEGRAM_BOT_TOKEN and TELEGRAM_CHANNEL_ID)
+
+# Telegram - Secondary Channel (optional, for dual-channel broadcasting)
+TELEGRAM_BOT_TOKEN_2 = os.environ.get("TELEGRAM_BOT_TOKEN_2", "")
+TELEGRAM_CHANNEL_ID_2 = os.environ.get("TELEGRAM_CHANNEL_ID_2", "")
+TELEGRAM_ENABLED_2 = bool(TELEGRAM_BOT_TOKEN_2 and TELEGRAM_CHANNEL_ID_2)
 
 # Operating hours: if True, no signals created between 23:00-08:00 BRT (daily_close to daily_opener).
 OPERATING_HOURS_ONLY = os.environ.get("OPERATING_HOURS_ONLY", "false").lower() in ("true", "1", "yes")
