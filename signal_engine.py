@@ -298,7 +298,10 @@ def _clear_pre_signal_state():
     try:
         _engine_state_coll.update_one(
             {"_id": "state"},
-            {"$set": {"pre_signal_sent": False}, "$unset": {"last_pre_signal_message_id": ""}},
+            {
+                "$set": {"pre_signal_sent": False},
+                "$unset": {"last_pre_signal_message_id": "", "last_pre_signal_message_id_2": ""}
+            },
             upsert=True,
         )
     except Exception as e:
@@ -910,14 +913,15 @@ def on_new_round(round_data):
     if _pre_signal_sent_for_run() and current_mult_val > config.THRESHOLD and consecutive < config.SEQUENCE_LENGTH:
         state = _get_engine_state()
         pre_msg_id = state.get("last_pre_signal_message_id")
+        pre_msg_id_2 = state.get("last_pre_signal_message_id_2")
         if _should_post_interrupted_signal():
             telegram_service.send_signal_cancelled()
             _record_interrupt_event("interrupted")
         else:
             # Don't post cancel — delete the "Analisando" message so channel is consistent
             if pre_msg_id is not None:
-                telegram_service.delete_message(pre_msg_id)
-        _clear_pre_signal_state()  # pre_signal_sent + last_pre_signal_message_id
+                telegram_service.delete_message(pre_msg_id, pre_msg_id_2)
+        _clear_pre_signal_state()  # pre_signal_sent + last_pre_signal_message_id + last_pre_signal_message_id_2
         return
 
     # Trigger fires (3 consecutive < THRESHOLD): send Template 3 ONLY if we already sent Template 2
@@ -945,13 +949,15 @@ def on_new_round(round_data):
                     return  # Throttle: don't flood Analisando
             except Exception:
                 pass
-        msg_id = telegram_service.send_pre_signal_analyzing()
+        msg_ids = telegram_service.send_pre_signal_analyzing()
         _set_pre_signal_sent(True)
         if _engine_state_coll is not None:
             try:
                 updates = {"last_pre_signal_at": datetime.now(timezone.utc)}
-                if msg_id is not None:
-                    updates["last_pre_signal_message_id"] = msg_id
+                if msg_ids and msg_ids[0] is not None:
+                    updates["last_pre_signal_message_id"] = msg_ids[0]
+                if msg_ids and msg_ids[1] is not None:
+                    updates["last_pre_signal_message_id_2"] = msg_ids[1]
                 _engine_state_coll.update_one(
                     {"_id": "state"},
                     {"$set": updates},
@@ -966,7 +972,7 @@ def on_new_round(round_data):
             try:
                 _engine_state_coll.update_one(
                     {"_id": "state"},
-                    {"$unset": {"last_pre_signal_message_id": ""}},
+                    {"$unset": {"last_pre_signal_message_id": "", "last_pre_signal_message_id_2": ""}},
                     upsert=False,
                 )
             except Exception:

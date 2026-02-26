@@ -364,11 +364,11 @@ Retornamos quando o mercado estabilizar. ⏳"""
 # ============================================================
 def send_pre_signal_analyzing():
     """Send Pre-Signal (Template 2): 'Analisando...' before a possible signal.
-    Returns message_id so caller can delete it if 'Sinal cancelado' is not posted (governance)."""
+    Returns tuple (primary_msg_id, secondary_msg_id) so caller can delete both if 'Sinal cancelado' is not posted (governance)."""
     text = """⚠️ Analisando... ⚠️
 
 Padrão identificado. Aguarde o sinal."""
-    return send_message(text)
+    return send_message_with_both_ids(text)
 
 
 def send_signal_cancelled():
