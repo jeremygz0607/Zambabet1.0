@@ -105,7 +105,7 @@ def _link_button():
 
 def _welcome_message_text():
     """Return the pinned welcome message (CHANGE 12). Uses AFFILIATE_LINK."""
-    link = config.AFFILIATE_LINK or "https://app.sinalgpt.ai/sinal-confirmado"
+    link = config.AFFILIATE_LINK or "https://zamba.bet/games/spribe/aviator?o=login"
     link_tag = f"<a href='{link}'>JOGUE AQUI</a>"
     return f"""🎰 BEM-VINDO AO SINAL AVIATOR 🎰
 
@@ -135,7 +135,7 @@ def send_welcome_message():
     """Send the pinned welcome message to the channel with inline button. Returns message_id or None."""
     text = _welcome_message_text()
     # Create inline keyboard button "COMEÇAR AGORA" linking to affiliate
-    link = config.AFFILIATE_LINK or "https://app.sinalgpt.ai/sinal-confirmado"
+    link = config.AFFILIATE_LINK or "https://zamba.bet/games/spribe/aviator?o=login"
     reply_markup = {
         "inline_keyboard": [
             [
