@@ -94,7 +94,7 @@ def delete_message(message_id, message_id_2=None):
     return success
 
 
-def send_message(text, reply_to_message_id=None, reply_markup=None):
+def send_message(text, reply_to_message_id=None, reply_to_message_id_2=None, reply_markup=None):
     """Send message to Telegram channel(s) via HTTP API.
     Sends to both primary and secondary channels (if configured) simultaneously.
     Returns primary channel message_id (int) on success, None on failure/disabled.
@@ -102,11 +102,13 @@ def send_message(text, reply_to_message_id=None, reply_markup=None):
     
     Args:
         text: Message text (HTML supported)
-        reply_to_message_id: Optional message ID to reply to (primary channel only)
+        reply_to_message_id: Optional message ID to reply to (primary channel)
+        reply_to_message_id_2: Optional message ID to reply to (secondary channel)
         reply_markup: Optional inline keyboard markup (dict with 'inline_keyboard' key)
     
     Returns:
         Primary channel message_id (for backward compatibility)
+        Use send_message_with_both_ids() to get both message IDs
     """
     if not config.TELEGRAM_ENABLED:
         logger.info(f"[TELEGRAM DISABLED] Would send:\n{text}")
@@ -125,13 +127,14 @@ def send_message(text, reply_to_message_id=None, reply_markup=None):
             reply_markup
         )
     
-    # Send to secondary channel (if configured) - no reply threading for secondary
+    # Send to secondary channel (if configured) - now supports reply threading
+    secondary_msg_id = None
     if config.TELEGRAM_ENABLED_2:
-        _send_to_single_channel(
+        secondary_msg_id = _send_to_single_channel(
             config.TELEGRAM_BOT_TOKEN_2,
             config.TELEGRAM_CHANNEL_ID_2,
             text,
-            None,  # No reply threading for secondary channel
+            reply_to_message_id_2,  # Now supports reply threading for secondary channel
             reply_markup  # But include buttons if provided
         )
     
@@ -144,6 +147,49 @@ def send_message(text, reply_to_message_id=None, reply_markup=None):
                 logger.debug(f"message_sent_callback error: {e}")
     
     return primary_msg_id
+
+
+def send_message_with_both_ids(text, reply_to_message_id=None, reply_to_message_id_2=None, reply_markup=None):
+    """Send message to Telegram channel(s) and return both message IDs.
+    Returns tuple (primary_msg_id, secondary_msg_id).
+    """
+    if not config.TELEGRAM_ENABLED:
+        logger.info(f"[TELEGRAM DISABLED] Would send:\n{text}")
+        return (None, None)
+    
+    time.sleep(random.uniform(0.5, 1.5))
+    
+    # Send to primary channel
+    primary_msg_id = None
+    if config.TELEGRAM_ENABLED:
+        primary_msg_id = _send_to_single_channel(
+            config.TELEGRAM_BOT_TOKEN,
+            config.TELEGRAM_CHANNEL_ID,
+            text,
+            reply_to_message_id,
+            reply_markup
+        )
+    
+    # Send to secondary channel (if configured) - now supports reply threading
+    secondary_msg_id = None
+    if config.TELEGRAM_ENABLED_2:
+        secondary_msg_id = _send_to_single_channel(
+            config.TELEGRAM_BOT_TOKEN_2,
+            config.TELEGRAM_CHANNEL_ID_2,
+            text,
+            reply_to_message_id_2,  # Now supports reply threading for secondary channel
+            reply_markup  # But include buttons if provided
+        )
+    
+    if primary_msg_id:
+        logger.info("Message sent to Telegram channel(s)")
+        if _message_sent_callback:
+            try:
+                _message_sent_callback()
+            except Exception as e:
+                logger.debug(f"message_sent_callback error: {e}")
+    
+    return (primary_msg_id, secondary_msg_id)
 
 
 def format_currency(value):
@@ -349,7 +395,9 @@ Padrão identificado. Aguarde o sinal."""
 # TEMPLATE 3: Signal
 # ============================================================
 def send_signal(last_round, target):
-    """Send signal confirmation message (V2 style)."""
+    """Send signal confirmation message (V2 style).
+    Returns tuple (primary_msg_id, secondary_msg_id) for reply threading support.
+    """
     # In V2 we focus on target/protection/gale max, not last_round text.
     target_multiplier = target
     protection_multiplier = 2.00  # can be adjusted later if a distinct protection level is introduced
@@ -362,13 +410,13 @@ def send_signal(last_round, target):
 🔄 Gale Máx: {gale_max}
 
 {_link_button()}"""
-    return send_message(text)
+    return send_message_with_both_ids(text)
 
 
 # ============================================================
 # TEMPLATE 4: Win Result
 # ============================================================
-def send_win_result(result, target, today_wins, today_losses, reply_to_message_id=None):
+def send_win_result(result, target, today_wins, today_losses, reply_to_message_id=None, reply_to_message_id_2=None):
     """Send win result (gale_depth = 0). Big Win if result >= 3*target, else Standard Win."""
     try:
         result_val = float(result)
@@ -393,13 +441,13 @@ Quem seguiu, lucrou! 💎
 {phrase}
 
 {_link_button()}"""
-    send_message(text, reply_to_message_id=reply_to_message_id)
+    send_message(text, reply_to_message_id=reply_to_message_id, reply_to_message_id_2=reply_to_message_id_2)
 
 
 # ============================================================
 # TEMPLATE 5: Gale 1 Trigger
 # ============================================================
-def send_gale1_trigger(result, target, reply_to_message_id=None):
+def send_gale1_trigger(result, target, reply_to_message_id=None, reply_to_message_id_2=None):
     """Send gale 1 warning message (V2 style). Random Alert emoji."""
     emoji = random.choice(ALERT_EMOJIS)
     text = f"""{emoji} GALE 1 {emoji}
@@ -407,13 +455,13 @@ def send_gale1_trigger(result, target, reply_to_message_id=None):
 Dobre a aposta! Entrada de recuperação.
 
 {_link_button()}"""
-    send_message(text, reply_to_message_id=reply_to_message_id)
+    send_message(text, reply_to_message_id=reply_to_message_id, reply_to_message_id_2=reply_to_message_id_2)
 
 
 # ============================================================
 # TEMPLATE 6: Gale 2 Trigger
 # ============================================================
-def send_gale2_trigger(result, target, reply_to_message_id=None):
+def send_gale2_trigger(result, target, reply_to_message_id=None, reply_to_message_id_2=None):
     """Send gale 2 warning message (V2 style). Random Alert emoji."""
     emoji = random.choice(ALERT_EMOJIS)
     text = f"""{emoji} GALE 2 {emoji}
@@ -421,13 +469,13 @@ def send_gale2_trigger(result, target, reply_to_message_id=None):
 Dobre a aposta! Entrada de recuperação.
 
 {_link_button()}"""
-    send_message(text, reply_to_message_id=reply_to_message_id)
+    send_message(text, reply_to_message_id=reply_to_message_id, reply_to_message_id_2=reply_to_message_id_2)
 
 
 # ============================================================
 # TEMPLATE 7: Gale Recovery (same style as Win: Standard / Big)
 # ============================================================
-def send_gale_recovery(gale_depth, result, target, today_wins, today_losses, reply_to_message_id=None):
+def send_gale_recovery(gale_depth, result, target, today_wins, today_losses, reply_to_message_id=None, reply_to_message_id_2=None):
     """Send gale recovery (gale 1 or 2 hit target). Big if result >= 3*target, else Standard. Same style as win."""
     try:
         result_val = float(result)
@@ -452,13 +500,13 @@ Recuperamos no GALE {gale_depth}! Quem seguiu, lucrou! 💎
 Recuperamos no GALE {gale_depth}! {phrase}
 
 {_link_button()}"""
-    send_message(text, reply_to_message_id=reply_to_message_id)
+    send_message(text, reply_to_message_id=reply_to_message_id, reply_to_message_id_2=reply_to_message_id_2)
 
 
 # ============================================================
 # TEMPLATE 8: Loss (Gale 2 Failed)
 # ============================================================
-def send_loss_message_telegram(result, today_wins, today_losses, reply_to_message_id=None):
+def send_loss_message_telegram(result, today_wins, today_losses, reply_to_message_id=None, reply_to_message_id_2=None):
     """Send loss message (gale 2 failed). Optional reply threading."""
     text = f"""🛑 STOP LOSS ATIVADO 🛑
 
@@ -469,7 +517,7 @@ Pausando para proteger sua banca. 🛡️
 Aguardando entrada segura...
 
 {_link_button()}"""
-    send_message(text, reply_to_message_id=reply_to_message_id)
+    send_message(text, reply_to_message_id=reply_to_message_id, reply_to_message_id_2=reply_to_message_id_2)
 
 
 # ============================================================

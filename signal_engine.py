@@ -531,14 +531,19 @@ def create_signal(trigger_round_id, target):
         # Send signal message (Template 3) and store message_id for reply threading
         recent = get_recent_rounds(1)
         last_round = recent[0].get("multiplier") if recent else 0
-        msg_id = telegram_service.send_signal(last_round=last_round, target=target)
+        msg_ids = telegram_service.send_signal(last_round=last_round, target=target)
         _record_interrupt_event("confirmed")  # For interrupt rate governance (interrupts vs confirmed)
-        if msg_id is not None:
+        if msg_ids and msg_ids[0] is not None:
+            update_data = {"telegram_message_id": msg_ids[0]}
+            if msg_ids[1] is not None:
+                update_data["telegram_message_id_2"] = msg_ids[1]
             _signals_coll.update_one(
                 {"_id": sig_id},
-                {"$set": {"telegram_message_id": msg_id}},
+                {"$set": update_data},
             )
-            doc["telegram_message_id"] = msg_id
+            doc["telegram_message_id"] = msg_ids[0]
+            if msg_ids[1] is not None:
+                doc["telegram_message_id_2"] = msg_ids[1]
         
         return doc
     except Exception as e:
@@ -780,6 +785,7 @@ def send_win_message(signal, round_data):
         today_wins=stats["wins"],
         today_losses=stats["losses"],
         reply_to_message_id=signal.get("telegram_message_id"),
+        reply_to_message_id_2=signal.get("telegram_message_id_2"),
     )
     # Streak celebration (5, 10, 15, ...) sent after win message
     _check_streak_celebration()
@@ -807,6 +813,7 @@ def send_recovery_message(signal, round_data):
         today_wins=stats["wins"],
         today_losses=stats["losses"],
         reply_to_message_id=signal.get("telegram_message_id"),
+        reply_to_message_id_2=signal.get("telegram_message_id_2"),
     )
     # Streak celebration (5, 10, 15, ...) sent after recovery message
     _check_streak_celebration()
@@ -821,13 +828,14 @@ def send_gale_message(signal, new_depth):
     last_mult = recent[0].get("multiplier") if recent else 0
     
     reply_to = signal.get("telegram_message_id")
+    reply_to_2 = signal.get("telegram_message_id_2")
     if new_depth == 1:
         telegram_service.send_gale1_trigger(
-            result=last_mult, target=signal["target"], reply_to_message_id=reply_to
+            result=last_mult, target=signal["target"], reply_to_message_id=reply_to, reply_to_message_id_2=reply_to_2
         )
     elif new_depth == 2:
         telegram_service.send_gale2_trigger(
-            result=last_mult, target=signal["target"], reply_to_message_id=reply_to
+            result=last_mult, target=signal["target"], reply_to_message_id=reply_to, reply_to_message_id_2=reply_to_2
         )
 
 
@@ -849,6 +857,7 @@ def send_loss_message(signal, round_data):
         today_wins=stats["wins"],
         today_losses=stats["losses"],
         reply_to_message_id=signal.get("telegram_message_id"),
+        reply_to_message_id_2=signal.get("telegram_message_id_2"),
     )
     # When we hit 2 losses in a row, reset display counters so next messages show 1✅|1❌
     if stats["losses"] == 2:
